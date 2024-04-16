@@ -2,7 +2,7 @@
 
 # usage
 
-`php sitemap.php site=https://www.goldsonlandscaping.com/`
+`php sitemap.php site=https://www.example.com/`
 
 ## Features
  - Actually crawls webpages like Google would
