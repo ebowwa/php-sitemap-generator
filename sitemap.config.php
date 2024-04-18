@@ -34,17 +34,17 @@ $permissions = 0644;
 $max_depth = 0;
 
 // Show changefreq
-$enable_frequency = false;
+$enable_frequency = true;
 
 // Show priority
-$enable_priority = false;
+$enable_priority = true;
 
 // Default values for changefreq and priority
 $freq = "daily";
 $priority = "1";
 
 // Add lastmod based on server response. Unreliable and disabled by default.
-$enable_modified = false;
+$enable_modified = true;
 
 // Disable this for misconfigured, but tolerable SSL server.
 $curl_validate_certificate = true;
@@ -54,7 +54,6 @@ $curl_validate_certificate = true;
 $blacklist = array(
     "*.jpg",
     "*/secrets/*",
-    "https://www.knyz.org/supersecret"
 );
 
 // Enable this if your site do requires GET arguments to function
@@ -73,6 +72,7 @@ $crawler_user_agent = "Mozilla/5.0 (compatible; Sitemap Generator Crawler; +http
 $xmlheader ='<?xml version="1.0" encoding="UTF-8"?>
 <urlset
 xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">';

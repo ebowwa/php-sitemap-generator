@@ -189,6 +189,7 @@ function domain_root($href)
 
 //The curl client is create outside of the function to avoid re-creating it for performance reasons
 $curl_client = curl_init();
+
 function get_data($url)
 {
     global $curl_validate_certificate, $curl_client, $index_pdf, $crawler_user_agent, $enable_modified;
@@ -220,7 +221,6 @@ function get_data($url)
 
         if (!check_blacklist($redirect_url)) {
             echo logger("Redirected URL is in blacklist", 1);
-
         } else {
             scan_url($redirect_url);
         }
@@ -237,11 +237,10 @@ function get_data($url)
     }
     else $modified = null;
 
-    if (stripos($content_type, "application/pdf") !== false && $index_pdf) {
-        $html = "This is a PDF";
-    }
-    //Return it as an array
-    return array($html, $modified, (stripos($content_type, "image/") && $index_img));
+    $is_image = (stripos($content_type, "image/") !== false) && $index_img;
+    $is_pdf = (stripos($content_type, "application/pdf") !== false) && $index_pdf;
+
+    return array($html, $modified, $is_image, $is_pdf);
 }
 
 //Try to match string against blacklist
@@ -333,7 +332,8 @@ function get_links($html, $parent_url, $regexp)
 
 function scan_url($url)
 {
-    global $scanned, $deferredLinks, $file_stream, $freq, $priority, $enable_priority, $enable_frequency, $max_depth, $depth, $real_site, $indexed;
+    global $scanned, $deferredLinks, $file_stream, $freq, $priority, $enable_priority, $enable_frequency, $max_depth, $depth, $real_site, $indexed, $index_img, $index_pdf, $enable_modified;
+
     $depth++;
 
     logger("Scanning $url", 2);
@@ -350,14 +350,53 @@ function scan_url($url)
         return $depth--;
     }
 
-    //Note that URL has been scanned
+    // Note that URL has been scanned
     $scanned[$url] = 1;
 
-    //Send cURL request
-    list($html, $modified, $is_image) = get_data($url);
+    // Send cURL request
+    list($html, $modified, $is_image, $is_pdf) = get_data($url);
 
-    if ($is_image) {
-        //Url is an image
+    if ($is_image && $index_img) {
+        $map_row = "<url>\n";
+        $map_row .= "<loc>$url</loc>\n";
+        $map_row .= "<image:image>\n";
+        $map_row .= "  <image:loc>$url</image:loc>\n";
+        $map_row .= "</image:image>\n";
+        if ($enable_frequency) {
+            $map_row .= "<changefreq>$freq</changefreq>\n";
+        }
+        if ($enable_priority) {
+            $map_row .= "<priority>$priority</priority>\n";
+        }
+        if ($enable_modified && $modified !== null) {
+            $map_row .= "   <lastmod>$modified</lastmod>\n";
+        }
+        $map_row .= "</url>\n";
+        fwrite($file_stream, $map_row);
+        $indexed++;
+        logger("Added image: " . $url . (($modified !== null) ? " [Modified: " . $modified . "]" : ''), 0);
+        unset($map_row);
+        return $depth--;
+    }
+
+    if ($is_pdf && $index_pdf) {
+        $map_row = "<url>\n";
+        $map_row .= "<loc>$url</loc>\n";
+        if ($enable_frequency) {
+            $map_row .= "<changefreq>$freq</changefreq>\n";
+        }
+        if ($enable_priority) {
+            $map_row .= "<priority>$priority</priority>\n";
+        }
+        if ($enable_modified && $modified !== null) {
+            $map_row .= "   <lastmod>$modified</lastmod>\n";
+        }
+        $map_row .= "</url>\n";
+        fwrite($file_stream, $map_row);
+        $indexed++;
+        logger("Added PDF: " . $url . (($modified !== null) ? " [Modified: " . $modified . "]" : ''), 0);
+        unset($map_row);
+        return $depth--;
     }
 
     if (!$html) {
@@ -377,19 +416,19 @@ function scan_url($url)
     if ($enable_priority) {
         $map_row .= "<priority>$priority</priority>\n";
     }
-    if ($modified) {
+    if ($enable_modified && $modified !== null) {
         $map_row .= "   <lastmod>$modified</lastmod>\n";
     }
     $map_row .= "</url>\n";
     fwrite($file_stream, $map_row);
     $indexed++;
-    logger("Added: " . $url . (($modified) ? " [Modified: " . $modified . "]" : ''), 0);
-    unset($is_image, $map_row);
+    logger("Added: " . $url . (($modified !== null) ? " [Modified: " . $modified . "]" : ''), 0);
+    unset($map_row);
 
-    // Extract urls from <a href="??"></a>
+    // Extract URLs from <a href="??"></a>
     $ahrefs = get_links($html, $url, "<a\s[^>]*href=(\"|'??)([^\" >]*?)\\1[^>]*>(.*)<\/a>");
 
-    // Extract urls from <frame src="??">
+    // Extract URLs from <frame src="??">
     $framesrc = get_links($html, $url, "<frame\s[^>]*src=(\"|'??)([^\" >]*?)\\1[^>]*>");
 
     $links = array_filter(array_merge($ahrefs, $framesrc), function ($item) use (&$deferredLinks) {
@@ -397,9 +436,9 @@ function scan_url($url)
     });
     unset($html, $url, $ahrefs, $framesrc);
 
-    logger("Found urls: " . join(", ", $links), 2);
+    logger("Found URLs: " . join(", ", $links), 2);
 
-    //Note that URL has been deferred
+    // Note that URL has been deferred
     foreach ($links as $href) {
         if ($href) {
             $deferredLinks[$href] = 1;
