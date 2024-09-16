@@ -52,3 +52,4 @@ Next, let's tackle the `$debug` variable. All the same concepts apply but the sy
 `php sitemap.php debug\["add"]=true\&debug\["warn"]=false\&debug\["reject"]=true`
 
 **Important note**: Setting debug flags will require setting _all_ of them. Partial application is not supported.
+
